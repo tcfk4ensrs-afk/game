@@ -1,5 +1,6 @@
 :root {
-    --primary-color: #FFD700; /* 星の黄色 */
+    --primary-color: #FFD700;
+    /* 星の黄色 */
     --accent-color: #FF6B6B;
     --text-color: #333;
     --bg-sky-day: linear-gradient(to bottom, #87CEEB, #E0F7FA);
@@ -12,7 +13,8 @@
     margin: 0;
     padding: 0;
     font-family: 'M PLUS Rounded 1c', sans-serif;
-    user-select: none; /* テキスト選択防止 */
+    user-select: none;
+    /* テキスト選択防止 */
 }
 
 body {
@@ -26,11 +28,12 @@ body {
 
 #game-container {
     position: relative;
-    width: 800px;
-    height: 450px;
+    width: 100%;
+    max-width: 800px;
+    aspect-ratio: 16 / 9;
     background: var(--bg-sky-day);
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     transition: background 1s ease;
 }
@@ -47,7 +50,8 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* キャンバス操作を阻害しないように */
+    pointer-events: none;
+    /* キャンバス操作を阻害しないように */
 }
 
 .screen {
@@ -60,10 +64,14 @@ canvas {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(0, 0, 0, 0.7);
+    /* 暗い背景 */
+    color: #fff;
+    /* 文字色を白に */
     backdrop-filter: blur(5px);
     transition: opacity 0.3s ease;
     pointer-events: auto;
+    z-index: 10;
 }
 
 .screen.hidden {
@@ -79,7 +87,7 @@ canvas {
 .game-title {
     font-size: 3rem;
     color: var(--accent-color);
-    text-shadow: 2px 2px 0 #fff, 4px 4px 0 rgba(0,0,0,0.1);
+    text-shadow: 2px 2px 0 #fff, 4px 4px 0 rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
     animation: float 3s ease-in-out infinite;
 }
@@ -132,8 +140,15 @@ canvas {
 }
 
 @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
 }
 
 /* 文字演出用のスタイル（JSで動的に追加する場合もあるが、基本スタイルをここに） */
@@ -143,5 +158,6 @@ canvas {
     font-weight: bold;
     color: rgba(255, 255, 255, 0.3);
     pointer-events: none;
-    z-index: 0; /* 背景の後ろ、またはキャンバスの下には配置できないのでキャンバス内描画か、キャンバス後ろのDivで管理するか検討。今回はCanvas描画にするためCSSクラスは未使用の可能性あり */
+    z-index: 0;
+    /* 背景の後ろ、またはキャンバスの下には配置できないのでキャンバス内描画か、キャンバス後ろのDivで管理するか検討。今回はCanvas描画にするためCSSクラスは未使用の可能性あり */
 }
