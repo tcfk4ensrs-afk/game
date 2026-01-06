@@ -20,6 +20,9 @@ class Game {
         this.distance = 0;
         this.difficulty = 0; // 0:なし, 1:ふ, 2:ん, 3:す, 4:い
 
+        // ジャンプボタン保持状態
+        this.isJumpHeld = false;
+
         // UI要素
         this.ui = {
             title: document.getElementById('title-screen'),
@@ -54,43 +57,53 @@ class Game {
         this.ui.retryBtn.addEventListener('click', () => this.resetGame());
         this.ui.restartBtn.addEventListener('click', () => this.resetGame());
 
-        // ゲーム操作（クリック＆タップ）
-        window.addEventListener('mousedown', (e) => this.inputStart(e));
-        window.addEventListener('touchstart', (e) => this.inputStart(e), { passive: false });
+        // ゲーム操作（マウス＆タッチ）
+        const startJumpHandler = (e) => {
+            // UI上の操作は除外
+            if (e.target.closest('button') || e.target.closest('input')) return;
+
+            if (this.state === 'PLAYING') {
+                e.preventDefault(); // タッチ時のスクロール防止など
+                this.isJumpHeld = true;
+                this.player.startJump();
+            }
+        };
+
+        const endJumpHandler = (e) => {
+            this.isJumpHeld = false;
+            if (this.state === 'PLAYING') {
+                this.player.endJump();
+            }
+        };
+
+        window.addEventListener('mousedown', startJumpHandler);
+        window.addEventListener('touchstart', startJumpHandler, { passive: false });
+
+        window.addEventListener('mouseup', endJumpHandler);
+        window.addEventListener('touchend', endJumpHandler);
+        window.addEventListener('touchcancel', endJumpHandler);
 
         // キーボード操作対応
         window.addEventListener('keydown', (e) => {
             if (this.state !== 'PLAYING') return;
             if (e.code === 'Space' || e.code === 'ArrowUp') {
-                this.player.jump();
-            } else if (e.code === 'ArrowDown') {
-                this.player.crouch();
+                if (!e.repeat) {
+                    this.isJumpHeld = true;
+                    this.player.startJump();
+                }
             }
         });
 
-        // ダブルタップ判定用
-        this.lastTapTime = 0;
+        window.addEventListener('keyup', (e) => {
+            if (this.state !== 'PLAYING') return;
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                this.isJumpHeld = false;
+                this.player.endJump();
+            }
+        });
     }
 
-    inputStart(e) {
-        if (this.state !== 'PLAYING') return;
 
-        // クリックがUI上の場合は無視（念のため）
-        if (e.target.closest('button') || e.target.closest('input')) return;
-
-        const currentTime = new Date().getTime();
-        const tapLength = currentTime - this.lastTapTime;
-
-        if (tapLength < 300 && tapLength > 0) {
-            // ダブルタップ -> しゃがみ
-            this.player.crouch();
-            e.preventDefault();
-        } else {
-            // シングルタップ -> ジャンプ
-            this.player.jump();
-        }
-        this.lastTapTime = currentTime;
-    }
 
     start() {
         this.state = 'PLAYING';
@@ -252,14 +265,26 @@ class Player {
     }
 
     update(deltaTime) {
-        if (this.y < this.game.height - this.height - 50) {
-            this.vy += this.weight;
-            this.y += this.vy;
-            this.isJumping = true;
-        } else {
-            this.y = this.game.height - this.height - 50;
+        // 重力計算（可変ジャンプ）
+        // 上昇中（vy < 0）かつボタン長押し中なら重力を弱くする＝高く飛べる
+        let currentWeight = this.weight;
+        if (this.isJumping && this.vy < 0 && this.game.isJumpHeld) {
+            currentWeight = this.weight * 0.3; // 重力を30%に軽減（より滞空できるように）
+        }
+
+        // 速度更新
+        this.vy += currentWeight;
+        this.y += this.vy;
+
+        const groundY = this.game.height - this.height - 50;
+
+        // 接地判定
+        if (this.y >= groundY) {
+            this.y = groundY;
             this.vy = 0;
             this.isJumping = false;
+        } else {
+            this.isJumping = true;
         }
     }
 
@@ -269,16 +294,7 @@ class Player {
         ctx.shadowBlur = 10;
         ctx.shadowColor = "white";
 
-        // 回転アニメーション
-        if (this.isJumping) {
-            // パス
-        }
-
-        // しゃがみ中は少し潰れる
-        let drawHeight = this.height;
-        let drawY = this.y;
-
-        this.drawStar(ctx, this.x + this.width / 2, drawY + drawHeight / 2, 5, this.width / 2, this.width / 4);
+        this.drawStar(ctx, this.x + this.width / 2, this.y + this.height / 2, 5, this.width / 2, this.width / 4);
         ctx.restore();
     }
 
@@ -306,33 +322,26 @@ class Player {
         ctx.fill();
     }
 
-    jump() {
-        if (!this.isJumping && !this.isCrouching) {
-            this.vy = -18;
+    // 可変ジャンプ：押した瞬間
+    startJump() {
+        if (!this.isJumping) {
+            this.vy = -12; // 初速控えめ
             this.isJumping = true;
         }
     }
 
-    crouch() {
-        if (!this.isJumping && !this.isCrouching) {
-            this.isCrouching = true;
-            this.height = this.originalHeight / 2;
-            this.y = this.game.height - this.height - 50; // 高さ調整して地面につける
-
-            setTimeout(() => {
-                this.height = this.originalHeight;
-                this.y = this.game.height - this.height - 50;
-                this.isCrouching = false;
-            }, 800);
+    // 可変ジャンプ：離した瞬間
+    endJump() {
+        // 上昇中なら減速させてジャンプを低く抑える
+        if (this.vy < -5) {
+            this.vy = -5;
         }
     }
 
     reset() {
-        this.height = this.originalHeight;
         this.y = this.game.height - this.height - 50;
         this.vy = 0;
         this.isJumping = false;
-        this.isCrouching = false;
     }
 
     getHitBox() {
@@ -356,7 +365,14 @@ class Obstacle {
 
         if (this.type === 'bird') {
             this.x = this.game.width;
-            this.y = this.game.height - 150; // 空中（しゃがんで避ける、あるいはジャンプしないと当たらない高さ）
+
+            // 可変ジャンプ対応：高・低のバリエーション
+            // 基本はジャンプで避けられる高さ (地面 - height - 50 くらい -> ジャンプしないと当たる)
+            // あるいは大ジャンプ強要の高さ
+
+            this.y = this.game.height - 130;
+            // 地面(height-50)より80px上 = 小ジャンプでは当たる
+
             this.speedX = this.game.speed + 2; // 鳥は速い
             this.color = 'black';
         } else {
@@ -416,38 +432,41 @@ class Background {
     }
 
     update(speed) {
-        // 文字出現チェック
-        if (this.nextLetterIndex < this.letters.length) {
-            if (this.game.distance > this.checkpoints[this.nextLetterIndex]) {
-                this.currentLetter = this.letters[this.nextLetterIndex];
-                this.letterX = this.game.width; // 右端から出現
-                this.nextLetterIndex++;
-
-                // 難易度更新
-                this.game.difficulty = this.nextLetterIndex; // 1文字目で難易度1...
-                this.game.speed += 1; // スピードアップ
-            }
-        } else {
-            // 全部出た後のループ処理用チェック
-            if (this.game.distance > this.checkpoints[this.checkpoints.length - 1] + 2000) {
-                // ループリセット
-                this.reset();
-                this.game.resetParams();
-                // ただしスコアや距離は維持したい場合は調整が必要だが、仕様では「難易度リセットしてループ」
-            }
-        }
+        // 文字出現ロジック改修：前の文字が消えてから一定時間後に次を出す
 
         if (this.currentLetter) {
             this.letterX -= speed * 0.2; // 背景としてゆっくり流れる
-            if (this.letterX < -200) {
-                this.currentLetter = null; // 画面外へ
+
+            // 画面外に出たら消す
+            if (this.letterX < -300) { // 文字サイズ200pxなので余裕を見て
+                this.currentLetter = null;
+                this.spawnTimer = 0; // 次の文字までのタイマー開始
+            }
+        } else {
+            // 文字が出ていない期待機状態
+            if (this.spawnTimer === undefined) this.spawnTimer = 0;
+            this.spawnTimer += 16;
+
+            if (this.spawnTimer > 2000) { // 2秒間隔
+                if (this.nextLetterIndex < this.letters.length) {
+                    this.currentLetter = this.letters[this.nextLetterIndex];
+                    this.letterX = this.game.width;
+                    this.nextLetterIndex++;
+
+                    // 難易度更新
+                    this.game.difficulty = this.nextLetterIndex;
+                    this.game.speed += 1.5; // 加速を強める
+                } else {
+                    // 全部出終わった -> ループ処理
+                    this.reset();
+                    this.game.resetParams();
+                }
             }
         }
     }
 
     draw(ctx) {
-        // 背景色（夕方、夜への変化はCSS側でbody背景を変える等も手だが、CanvasでやるならfillRectでalpha重ねるなど）
-        // 簡易的に地面
+        // 背景色
         ctx.fillStyle = '#654321';
         ctx.fillRect(0, this.game.height - 50, this.game.width, 50);
 
