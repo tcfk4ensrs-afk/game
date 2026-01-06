@@ -1,0 +1,147 @@
+:root {
+    --primary-color: #FFD700; /* 星の黄色 */
+    --accent-color: #FF6B6B;
+    --text-color: #333;
+    --bg-sky-day: linear-gradient(to bottom, #87CEEB, #E0F7FA);
+    --bg-sky-evening: linear-gradient(to bottom, #FF7F50, #2a2a72);
+    --bg-sky-night: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    user-select: none; /* テキスト選択防止 */
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #222;
+    overflow: hidden;
+}
+
+#game-container {
+    position: relative;
+    width: 800px;
+    height: 450px;
+    background: var(--bg-sky-day);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+    transition: background 1s ease;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* キャンバス操作を阻害しないように */
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(5px);
+    transition: opacity 0.3s ease;
+    pointer-events: auto;
+}
+
+.screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.screen.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.game-title {
+    font-size: 3rem;
+    color: var(--accent-color);
+    text-shadow: 2px 2px 0 #fff, 4px 4px 0 rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    animation: float 3s ease-in-out infinite;
+}
+
+.instruction {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    color: #555;
+}
+
+.game-btn {
+    padding: 12px 30px;
+    font-size: 1.5rem;
+    color: #fff;
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(255, 107, 107, 0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.game-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(255, 107, 107, 0.5);
+}
+
+.game-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(255, 107, 107, 0.4);
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#answer-input {
+    padding: 10px 15px;
+    font-size: 1.2rem;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    outline: none;
+    width: 200px;
+}
+
+#answer-input:focus {
+    border-color: var(--accent-color);
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* 文字演出用のスタイル（JSで動的に追加する場合もあるが、基本スタイルをここに） */
+.bg-char {
+    position: absolute;
+    font-size: 10rem;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+    z-index: 0; /* 背景の後ろ、またはキャンバスの下には配置できないのでキャンバス内描画か、キャンバス後ろのDivで管理するか検討。今回はCanvas描画にするためCSSクラスは未使用の可能性あり */
+}
