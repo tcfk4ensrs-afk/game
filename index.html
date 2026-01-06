@@ -1,0 +1,48 @@
+html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ふんすいジャンプ！</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="game-container">
+        <!-- ゲームキャンバス -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UIレイヤー -->
+        <div id="ui-layer">
+            <!-- タイトル画面 -->
+            <div id="title-screen" class="screen active">
+                <h1 class="game-title">ふんすいジャンプ！</h1>
+                <p class="instruction">タップでジャンプ / ダブルタップでしゃがみ</p>
+                <button id="start-btn" class="game-btn">ゲーム開始</button>
+            </div>
+
+            <!-- ゲームオーバー/クリア入力画面 -->
+            <div id="input-screen" class="screen hidden">
+                <h2 id="input-message">ゲームオーバー</h2>
+                <p>見えた文字を入力してください</p>
+                <div class="input-group">
+                    <input type="text" id="answer-input" placeholder="例：ふんすい" autocomplete="off">
+                    <button id="submit-btn" class="game-btn">送信</button>
+                </div>
+                <button id="retry-btn" class="game-btn hidden">もう一度挑戦！</button>
+            </div>
+
+            <!-- クリア画面 -->
+            <div id="clear-screen" class="screen hidden">
+                <h2>🎉 クリア！ 🎉</h2>
+                <p>すべての文字を見つけました！</p>
+                <div class="stars-animation">✨ ⭐ ✨</div>
+                <button id="restart-btn" class="game-btn">最初から遊ぶ</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
