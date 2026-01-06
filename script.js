@@ -211,11 +211,11 @@ class Game {
         if (!this.obstacleTimer) this.obstacleTimer = 0;
         this.obstacleTimer += deltaTime;
 
-        // 難易度に応じた生成間隔
-        let interval = 2000;
-        if (this.difficulty >= 2) interval = 1500;
-        if (this.difficulty >= 3) interval = 1000;
-        if (this.difficulty >= 4) interval = 800; // ランダム性も入れたい
+        // 難易度に応じた生成間隔（さらに短縮）
+        let interval = 1400;
+        if (this.difficulty >= 2) interval = 1000;
+        if (this.difficulty >= 3) interval = 700;
+        if (this.difficulty >= 4) interval = 400; // かなり高頻度
 
         if (this.obstacleTimer > interval) {
             this.addObstacle();
@@ -225,17 +225,22 @@ class Game {
 
     addObstacle() {
         const type = Math.random() < 0.5 ? 'ground' : 'sky';
-        // 難易度低いときはgroundのみなど調整可能
 
         let obsType = 'rock';
-        if (type === 'sky' && this.difficulty >= 2) {
-            obsType = 'bird'; // 空飛ぶ敵
+        if (type === 'sky' && this.difficulty >= 1) {
+            // 難易度1('ふ'の後)から空飛ぶ敵出現
+            obsType = 'bird';
         } else if (type === 'ground') {
-            obsType = Math.random() < 0.5 ? 'rock' : 'log'; // 岩か丸太
+            obsType = Math.random() < 0.5 ? 'rock' : 'log';
         }
 
-        // 難易度0（まだ'ふ'が出てない等）は少なめに
-        if (this.difficulty === 0 && Math.random() < 0.5) return;
+        // 4文字目は空の敵マシマシ
+        if (this.difficulty >= 4 && Math.random() < 0.7) {
+            obsType = 'bird';
+        }
+
+        // 難易度0でも間引かない（序盤からある程度出す）
+        if (this.difficulty === 0 && Math.random() < 0.1) return;
 
         this.obstacles.push(new Obstacle(this, obsType));
     }
@@ -366,14 +371,22 @@ class Obstacle {
         if (this.type === 'bird') {
             this.x = this.game.width;
 
-            // 可変ジャンプ対応：高・低のバリエーション
-            // 基本はジャンプで避けられる高さ (地面 - height - 50 くらい -> ジャンプしないと当たる)
-            // あるいは大ジャンプ強要の高さ
+            // 敵の高さバリエーション（3段階）
+            // 1. 小ジャンプで当たる（中段）: height - 130
+            // 2. 大ジャンプ強要（上段）: height - 190
+            // 3. 超高高度（最上段）: height - 260
 
-            this.y = this.game.height - 130;
-            // 地面(height-50)より80px上 = 小ジャンプでは当たる
+            let baseHeight = 130;
+            const rand = Math.random();
+            if (this.game.difficulty >= 2) {
+                // 難易度2以上で高い敵出現
+                if (rand < 0.33) baseHeight = 130;
+                else if (rand < 0.66) baseHeight = 190;
+                else baseHeight = 260; // 新追加：かなり高い
+            }
 
-            this.speedX = this.game.speed + 2; // 鳥は速い
+            this.y = this.game.height - baseHeight;
+            this.speedX = this.game.speed + 3; // 鳥は速い
             this.color = 'black';
         } else {
             // ground
@@ -403,7 +416,7 @@ class Obstacle {
     draw(ctx) {
         ctx.fillStyle = this.color;
         if (this.type === 'bird') {
-            // カラスっぽい形状（三角）
+            // カラス（三角）
             ctx.beginPath();
             ctx.moveTo(this.x, this.y);
             ctx.lineTo(this.x + this.width, this.y + this.height / 2);
@@ -428,36 +441,56 @@ class Background {
         this.currentLetter = null;
         this.nextLetterIndex = 0;
         this.letterX = 0;
-        this.checkpoints = [1000, 2500, 4000, 5500]; // 文字が出る距離
+        this.displayTimer = 0;
     }
 
     update(speed) {
-        // 文字出現ロジック改修：前の文字が消えてから一定時間後に次を出す
-
         if (this.currentLetter) {
-            this.letterX -= speed * 0.2; // 背景としてゆっくり流れる
+            const letterIndex = this.nextLetterIndex - 1;
 
-            // 画面外に出たら消す
-            if (this.letterX < -300) { // 文字サイズ200pxなので余裕を見て
-                this.currentLetter = null;
-                this.spawnTimer = 0; // 次の文字までのタイマー開始
+            if (letterIndex === 1) { // 2文字目'ん'
+                // 高速移動
+                this.letterX -= speed * 2.5;
+                if (this.letterX < -300) {
+                    this.currentLetter = null;
+                    this.spawnTimer = 0;
+                }
+            } else if (letterIndex === 3) { // 4文字目'い'
+                // 超高速移動
+                this.letterX -= speed * 4.0;
+                if (this.letterX < -300) {
+                    this.currentLetter = null;
+                    this.spawnTimer = 0;
+                }
+            } else {
+                // 通常 ('ふ', 'す')
+                this.letterX -= speed * 0.2;
+                if (this.letterX < -300) {
+                    this.currentLetter = null;
+                    this.spawnTimer = 0;
+                }
             }
+
         } else {
-            // 文字が出ていない期待機状態
+            // 待機状態
             if (this.spawnTimer === undefined) this.spawnTimer = 0;
             this.spawnTimer += 16;
 
-            if (this.spawnTimer > 2000) { // 2秒間隔
+            // 文字間のインターバル
+            let waitTime = 2000;
+            if (this.nextLetterIndex === 4) waitTime = 3000;
+
+            if (this.spawnTimer > waitTime) {
                 if (this.nextLetterIndex < this.letters.length) {
                     this.currentLetter = this.letters[this.nextLetterIndex];
                     this.letterX = this.game.width;
                     this.nextLetterIndex++;
-
+                    this.displayTimer = 0;
                     // 難易度更新
                     this.game.difficulty = this.nextLetterIndex;
-                    this.game.speed += 1.5; // 加速を強める
+                    this.game.speed += 2.0; // 加速強化
                 } else {
-                    // 全部出終わった -> ループ処理
+                    // ループ
                     this.reset();
                     this.game.resetParams();
                 }
@@ -472,8 +505,23 @@ class Background {
 
         // 文字描画
         if (this.currentLetter) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.font = 'bold 200px "M PLUS Rounded 1c"';
+            const letterIndex = this.nextLetterIndex - 1;
+
+            // 色と透明度の設定
+            if (letterIndex === 2) { // 'す'
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'; // 薄く
+            } else {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            }
+
+            if (letterIndex === 1 || letterIndex === 2) {
+                // 'ん'(1) と 'す'(2) は小さく
+                ctx.font = 'bold 100px "M PLUS Rounded 1c"';
+            } else {
+                // 'ふ'(0) と 'い'(3) は通常サイズ
+                ctx.font = 'bold 200px "M PLUS Rounded 1c"';
+            }
+
             ctx.fillText(this.currentLetter, this.letterX, 300);
         }
     }
@@ -482,6 +530,7 @@ class Background {
         this.currentLetter = null;
         this.nextLetterIndex = 0;
         this.letterX = 0;
+        this.displayTimer = 0;
     }
 }
 
