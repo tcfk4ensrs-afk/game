@@ -174,7 +174,7 @@ class Game {
         this.player.update(deltaTime);
 
         // 障害物更新
-        this.obstacles.forEach(obs => obs.update(this.speed));
+        this.obstacles.forEach(obs => obs.update(deltaTime));
         this.obstacles = this.obstacles.filter(obs => !obs.markedForDeletion);
 
         // 衝突判定などはここで呼び出す
@@ -364,48 +364,61 @@ class Obstacle {
     constructor(game, type) {
         this.game = game;
         this.type = type; // 'rock', 'log', 'bird'
-        this.width = 50;
-        this.height = 50;
         this.markedForDeletion = false;
+
+        // サイズのランダム化 (0.8 ~ 1.3倍)
+        const scale = 0.8 + Math.random() * 0.5;
+        this.width = 50 * scale;
+        this.height = 50 * scale;
+
+        // アニメーション用
+        this.frameX = 0;
+        this.frameTimer = 0;
 
         if (this.type === 'bird') {
             this.x = this.game.width;
 
-            // 敵の高さバリエーション（3段階）
-            // 1. 小ジャンプで当たる（中段）: height - 130
-            // 2. 大ジャンプ強要（上段）: height - 190
-            // 3. 超高高度（最上段）: height - 260
-
+            // 敵の高さバリエーション（3段階）+ 微妙なランダム
             let baseHeight = 130;
             const rand = Math.random();
             if (this.game.difficulty >= 2) {
-                // 難易度2以上で高い敵出現
                 if (rand < 0.33) baseHeight = 130;
                 else if (rand < 0.66) baseHeight = 190;
-                else baseHeight = 260; // 新追加：かなり高い
+                else baseHeight = 260;
             }
+            // 少し上下にずらして自然さを出す
+            baseHeight += (Math.random() * 40 - 20);
 
             this.y = this.game.height - baseHeight;
-            this.speedX = this.game.speed + 3; // 鳥は速い
-            this.color = 'black';
+            this.speedX = this.game.speed + 3 + Math.random(); // 速度も少しバラつく
+            this.color = '#333';
         } else {
             // ground
             this.x = this.game.width;
             this.y = this.game.height - this.height - 50;
             this.speedX = this.game.speed;
-            this.color = '#555';
 
             if (this.type === 'log') {
-                this.width = 30;
-                this.height = 60; // 縦長
+                this.width = 30 * scale;
+                this.height = 60 * scale; // 縦長
                 this.color = '#8B4513';
+            } else {
+                // rock
+                this.color = '#696969';
             }
         }
     }
 
-    update() {
+    update(deltaTime) {
         this.x -= this.speedX;
         if (this.x < -this.width) this.markedForDeletion = true;
+
+        // アニメーション更新（簡易）
+        this.frameTimer++;
+        if (this.frameTimer > 10) {
+            this.frameX = this.frameX === 0 ? 1 : 0;
+            this.frameTimer = 0;
+        }
 
         // プレイヤー衝突判定
         if (this.game.checkCollision(this.game.player.getHitBox(), this)) {
@@ -414,23 +427,90 @@ class Obstacle {
     }
 
     draw(ctx) {
-        ctx.fillStyle = this.color;
         if (this.type === 'bird') {
-            // カラス（三角）
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(this.x + this.width, this.y + this.height / 2);
-            ctx.lineTo(this.x, this.y + this.height);
-            ctx.fill();
+            this.drawBird(ctx);
         } else if (this.type === 'rock') {
-            // 岩（丸）
-            ctx.beginPath();
-            ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 2, 0, Math.PI * 2);
-            ctx.fill();
+            this.drawRock(ctx);
         } else {
-            // 丸太（四角）
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            this.drawLog(ctx);
         }
+    }
+
+    drawBird(ctx) {
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        // 胴体
+        ctx.beginPath();
+        ctx.ellipse(0, 0, this.width / 2, this.height / 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 頭
+        ctx.beginPath();
+        ctx.arc(-this.width / 3, -this.height / 4, this.width / 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 翼（アニメーション）
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        const wingY = this.frameX === 0 ? -this.height / 2 : this.height / 4;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(this.width / 2, wingY);
+        ctx.lineTo(-this.width / 4, 0);
+        ctx.fill();
+
+        // 目
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(-this.width / 2.5, -this.height / 3.5, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    drawRock(ctx) {
+        ctx.save();
+        ctx.fillStyle = '#696969';
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        // ゴツゴツした岩
+        ctx.beginPath();
+        ctx.moveTo(-this.width / 2, 0);
+        ctx.lineTo(-this.width / 3, -this.height / 2);
+        ctx.lineTo(0, -this.height / 3);
+        ctx.lineTo(this.width / 3, -this.height / 2);
+        ctx.lineTo(this.width / 2, 0);
+        ctx.lineTo(this.width / 3, this.height / 2);
+        ctx.lineTo(-this.width / 3, this.height / 2.5);
+        ctx.closePath();
+        ctx.fill();
+
+        // ハイライト
+        ctx.fillStyle = '#808080';
+        ctx.beginPath();
+        ctx.arc(-5, -5, this.width / 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    drawLog(ctx) {
+        ctx.save();
+        ctx.fillStyle = '#8B4513'; // こげ茶
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // 木目
+        ctx.strokeStyle = '#5D2906';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.x + 5, this.y + 10);
+        ctx.lineTo(this.x + 5, this.y + this.height - 10);
+        ctx.moveTo(this.x + 15, this.y + 5);
+        ctx.lineTo(this.x + 15, this.y + this.height - 5);
+        ctx.stroke();
+
+        ctx.restore();
     }
 }
 
